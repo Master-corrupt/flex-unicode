@@ -1030,6 +1030,19 @@ int yywrap(void)
  * unicode_expand() (see unicode.c), and the expanded text is fed to the
  * scanner through an anonymous temporary file. */
 
+/* The configure-generated config.h may map malloc/realloc to replacement
+ * functions (rpl_malloc/rpl_realloc) that are not declared in this
+ * translation unit; calling them leaves an implicit int declaration that
+ * truncates pointers on 64-bit platforms.  Undo the mapping and use the
+ * libc functions directly.  stdlib.h may already have been included above
+ * (its include guard makes a second include a no-op), so declare the libc
+ * functions explicitly. */
+#undef malloc
+#undef realloc
+#include <stdlib.h>
+void *malloc (size_t);
+void *realloc (void *, size_t);
+
 #include "unicode.h"
 
 static void set_input_stream (FILE *raw)

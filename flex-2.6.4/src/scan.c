@@ -1,6 +1,5 @@
-#line 1 "scan.c"
 
-#line 3 "scan.c"
+#line 2 "scan.c"
 
 #define  YY_INT_ALIGNED short int
 
@@ -1963,9 +1962,9 @@ extern const char *escaped_qstart, *escaped_qend;
     if (!indented_code) line_directive_out(NULL, 0);\
 } while (0)
 
-#line 1966 "scan.c"
+#line 1965 "scan.c"
 
-#line 1968 "scan.c"
+#line 1967 "scan.c"
 
 #define INITIAL 0
 #define SECT2 1
@@ -2231,7 +2230,7 @@ YY_DECL
 	char nmdef[MAXLINE];
 
 
-#line 2234 "scan.c"
+#line 2233 "scan.c"
 
 	while ( /*CONSTCOND*/1 )		/* loops until end-of-file is reached */
 		{
@@ -4132,7 +4131,7 @@ YY_RULE_SETUP
 #line 1013 "scan.l"
 YY_FATAL_ERROR( "flex scanner jammed" );
 	YY_BREAK
-#line 4135 "scan.c"
+#line 4134 "scan.c"
 case YY_STATE_EOF(INITIAL):
 case YY_STATE_EOF(SECT2):
 case YY_STATE_EOF(CODEBLOCK):
@@ -5215,6 +5214,19 @@ int yywrap(void)
  * Unicode extension: the raw input is read into memory, run through
  * unicode_expand() (see unicode.c), and the expanded text is fed to the
  * scanner through an anonymous temporary file. */
+
+/* The configure-generated config.h may map malloc/realloc to replacement
+ * functions (rpl_malloc/rpl_realloc) that are not declared in this
+ * translation unit; calling them leaves an implicit int declaration that
+ * truncates pointers on 64-bit platforms.  Undo the mapping and use the
+ * libc functions directly.  stdlib.h may already have been included above
+ * (its include guard makes a second include a no-op), so declare the libc
+ * functions explicitly. */
+#undef malloc
+#undef realloc
+#include <stdlib.h>
+void *malloc (size_t);
+void *realloc (void *, size_t);
 
 #include "unicode.h"
 
