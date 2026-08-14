@@ -20,8 +20,18 @@ jobs:
       # config.h.in) are committed. Make them newer than their sources so
       # make never tries to regenerate them with a different autotools
       # version.
+      #
+      # tests/Makefile.in additionally depends on tests/tableopts.am, which
+      # the build regenerates from tableopts.sh whenever the script is not
+      # strictly older (a checkout-mtime race). A fresh tableopts.am makes
+      # tests/Makefile.in stale and triggers the maintainer-mode automake
+      # rule, which fails on runners without automake. Stamp tableopts.am
+      # newer than tableopts.sh, then stamp every Makefile.in last.
       - name: Pin committed autotools outputs
-        run: find flex-2.6.4 -type f \( -name 'Makefile.in' -o -name 'aclocal.m4' -o -name 'configure' -o -name 'config.h.in' \) -exec touch {} +
+        run: |
+          find flex-2.6.4 -type f \( -name 'aclocal.m4' -o -name 'configure' -o -name 'config.h.in' \) -exec touch {} +
+          touch flex-2.6.4/tests/tableopts.am
+          find flex-2.6.4 -type f -name 'Makefile.in' -exec touch {} +
 
       # configure's executable bit can be lost when commits are made from
       # Windows (core.filemode), so restore it explicitly.
@@ -51,7 +61,10 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Pin committed autotools outputs
-        run: find flex-2.6.4 -type f \( -name 'Makefile.in' -o -name 'aclocal.m4' -o -name 'configure' -o -name 'config.h.in' \) -exec touch {} +
+        run: |
+          find flex-2.6.4 -type f \( -name 'aclocal.m4' -o -name 'configure' -o -name 'config.h.in' \) -exec touch {} +
+          touch flex-2.6.4/tests/tableopts.am
+          find flex-2.6.4 -type f -name 'Makefile.in' -exec touch {} +
 
       - name: Make configure executable
         run: chmod +x flex-2.6.4/configure flex-2.6.4/build-aux/*
