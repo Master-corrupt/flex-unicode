@@ -40,6 +40,12 @@ jobs:
   sanitizers:
     name: sanitizers (ASan + UBSan)
     runs-on: ubuntu-latest
+    env:
+      # flex is a short-lived build tool that intentionally does not free
+      # everything on exit; leak checks are noise. Memory errors (SEGV,
+      # heap overflows) still abort, and UB halts the run.
+      ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
+      UBSAN_OPTIONS: halt_on_error=1
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -69,7 +75,4 @@ jobs:
         run: cd flex-2.6.4 && make CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS"
 
       - name: Run tests under sanitizers
-        env:
-          ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
-          UBSAN_OPTIONS: halt_on_error=1
         run: bash run_tests.sh
