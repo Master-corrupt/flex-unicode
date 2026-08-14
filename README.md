@@ -1,5 +1,7 @@
 # 项目 3：扩展 Flex 使其支持 Unicode 编码
 
+[![CI](https://github.com/Master-corrupt/flex-unicode/actions/workflows/ci.yml/badge.svg)](https://github.com/Master-corrupt/flex-unicode/actions/workflows/ci.yml)
+
 本项目对经典词法分析器生成工具 **flex**（版本 2.6.4）做了扩展，使其能够
 在词法规则（`pattern`）和定义（`definitions`）中直接书写 `\uXXXX`、
 `\u{XXXXXX}` 以及 Unicode 字符类区间 `[\uXXXX-\uYYYY]`，例如：

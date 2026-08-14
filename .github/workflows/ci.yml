@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-test:
+    name: build & test (${{ matrix.cc }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # The autotools outputs (configure, Makefile.in, aclocal.m4,
+      # config.h.in) are committed. Make them newer than their sources so
+      # make never tries to regenerate them with a different autotools
+      # version.
+      - name: Pin committed autotools outputs
+        run: find flex-2.6.4 -type f \( -name 'Makefile.in' -o -name 'aclocal.m4' -o -name 'configure' -o -name 'config.h.in' \) -exec touch {} +
+
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y gettext bison
+
+      - name: Configure and build flex (${{ matrix.cc }})
+        run: cd flex-2.6.4 && ./configure CC=${{ matrix.cc }} && make
+
+      - name: Run Unicode regression tests
+        run: bash run_tests.sh
+
+  sanitizers:
+    name: sanitizers (ASan + UBSan)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Pin committed autotools outputs
+        run: find flex-2.6.4 -type f \( -name 'Makefile.in' -o -name 'aclocal.m4' -o -name 'configure' -o -name 'config.h.in' \) -exec touch {} +
+
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y gettext bison
+
+      # flex itself is the code under test (unicode.c runs inside it while
+      # expanding \u escapes), so the sanitizer build covers the expansion.
+      - name: Configure and build flex with sanitizers
+        env:
+          CFLAGS: -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer
+          LDFLAGS: -fsanitize=address,undefined
+        run: cd flex-2.6.4 && ./configure && make
+
+      - name: Run tests under sanitizers
+        env:
+          ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1
+        run: bash run_tests.sh
