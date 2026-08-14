@@ -1,0 +1,25 @@
+# my test scratch dir
+.build/
+
+# flex build artifacts (autotools)
+*.o
+*.lo
+*.la
+*.a
+*.exe
+.deps/
+.libs/
+config.status
+config.log
+config.cache
+config.h
+autom4te.cache/
+libtool
+.dirstamp
+stamp-h1
+stamp-po
+stamp-vti
+_install/
+Makefile
+stage1scan.c
+stage1flex
