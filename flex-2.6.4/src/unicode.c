@@ -162,14 +162,101 @@ static void emit_byte_class(strbuf *b, unsigned int lo, unsigned int hi)
     }
 }
 
+/* Maximum UTF-8 byte length of one code point. */
+#define UNICODE_MAX_UTF8 4
+
+/* Append alternation fragments matching byte strings in the inclusive
+ * range [lo, hi] (both of length n) as byte-level flex patterns.  `prefix`
+ * holds the bytes already committed for the leading part shared by every
+ * alternative of the range being split; each emitted alternative repeats
+ * them so alternatives are self-contained.  *first tracks whether no
+ * alternative has been emitted yet (suppresses the leading '|').  The
+ * head/tail branches recurse on the tail so that "first byte equals the
+ * bound" and "first byte strictly inside the range" are split into
+ * separate alternatives: a flat emission would silently miss code points
+ * whose later tail bytes run between 0x80 and the bound's tail. */
+static void emit_byte_range(strbuf *b,
+                            const unsigned char *prefix, int plen,
+                            const unsigned char *lo, const unsigned char *hi,
+                            int n, int *first)
+{
+    int k, j;
+    unsigned char npref[UNICODE_MAX_UTF8 + UNICODE_MAX_UTF8];
+    int nplen;
+
+    if (n == 0) {
+        /* the byte string is exactly the accumulated prefix */
+        if (*first) *first = 0;
+        else sb_appendc(b, '|');
+        for (j = 0; j < plen; j++) emit_byte(b, prefix[j]);
+        return;
+    }
+
+    k = 0;
+    while (k < n && lo[k] == hi[k]) k++;
+
+    if (k == n) {
+        /* a single byte string */
+        if (*first) *first = 0;
+        else sb_appendc(b, '|');
+        for (j = 0; j < plen; j++) emit_byte(b, prefix[j]);
+        for (j = 0; j < n; j++) emit_byte(b, lo[j]);
+        return;
+    }
+
+    /* commit the common prefix so that every alternative carries it */
+    nplen = plen + k;
+    for (j = 0; j < plen; j++) npref[j] = prefix[j];
+    for (j = 0; j < k; j++) npref[plen + j] = lo[j];
+
+    /* head: lo[k] with the tail running from lo[k+1..] up to the max */
+    {
+        unsigned char hpref[UNICODE_MAX_UTF8 + UNICODE_MAX_UTF8 + 1];
+        unsigned char tlo[UNICODE_MAX_UTF8], thi[UNICODE_MAX_UTF8];
+        int tn, h;
+        for (h = 0; h < nplen; h++) hpref[h] = npref[h];
+        hpref[nplen] = lo[k];
+        tn = n - k - 1;
+        for (j = 0; j < tn; j++) {
+            tlo[j] = lo[k + 1 + j];
+            thi[j] = 0xBF;
+        }
+        emit_byte_range(b, hpref, nplen + 1, tlo, thi, tn, first);
+    }
+
+    /* middle: bytes strictly between lo[k] and hi[k], full tail */
+    if (lo[k] + 1 <= hi[k] - 1) {
+        if (*first) *first = 0;
+        else sb_appendc(b, '|');
+        for (j = 0; j < nplen; j++) emit_byte(b, npref[j]);
+        emit_byte_class(b, lo[k] + 1, hi[k] - 1);
+        for (j = k + 1; j < n; j++) emit_byte_class(b, 0x80, 0xBF);
+    }
+
+    /* tail: hi[k] with the tail running from the min up to hi[k+1..] */
+    {
+        unsigned char tpref[UNICODE_MAX_UTF8 + UNICODE_MAX_UTF8 + 1];
+        unsigned char tlo[UNICODE_MAX_UTF8], thi[UNICODE_MAX_UTF8];
+        int tn, h;
+        for (h = 0; h < nplen; h++) tpref[h] = npref[h];
+        tpref[nplen] = hi[k];
+        tn = n - k - 1;
+        for (j = 0; j < tn; j++) {
+            tlo[j] = 0x80;
+            thi[j] = hi[k + 1 + j];
+        }
+        emit_byte_range(b, tpref, nplen + 1, tlo, thi, tn, first);
+    }
+}
+
 /* Emit a regex fragment matching the UTF-8 encodings of code points in
  * the inclusive range [lo, hi].  The fragment is a sequence of alternatives
  * joined with '|'.  *first tracks whether we are about to emit the first
  * alternative (no leading '|' for it). */
 static void emit_cp_range(strbuf *b, unsigned int lo, unsigned int hi, int *first)
 {
-    unsigned char a[4], bb[4];
-    int na, nb, k, j;
+    unsigned char a[UNICODE_MAX_UTF8], bb[UNICODE_MAX_UTF8];
+    int na, nb, j;
 
     if (lo > hi) return;
 
@@ -185,38 +272,15 @@ static void emit_cp_range(strbuf *b, unsigned int lo, unsigned int hi, int *firs
         return;
     }
 
-    if (*first)
-        *first = 0;
-    else
-        sb_appendc(b, '|');
-
-    /* same length: strip the common prefix */
-    k = 0;
-    while (k < na && a[k] == bb[k]) k++;
-    for (j = 0; j < k; ++j)
-        emit_byte(b, a[j]);
-
-    if (k == na)
-        return;   /* a single code point */
-
-    /* head: a[k] with the tail running from a[k+1..] up to the max */
-    emit_byte(b, a[k]);
-    for (j = k + 1; j < na; ++j)
-        emit_byte_class(b, a[j], 0xBF);
-
-    /* middle: bytes (a[k], b[k]) with a full tail */
-    if (a[k] + 1 <= bb[k] - 1) {
-        sb_appendc(b, '|');
-        emit_byte_class(b, a[k] + 1, bb[k] - 1);
-        for (j = k + 1; j < na; ++j)
-            emit_byte_class(b, 0x80, 0xBF);
+    if (na == 1) {
+        /* single-byte range: one compact class */
+        if (*first) *first = 0;
+        else sb_appendc(b, '|');
+        emit_byte_class(b, lo, hi);
+        return;
     }
 
-    /* tail: b[k] with the tail running from the min up to b[k+1..] */
-    sb_appendc(b, '|');
-    emit_byte(b, bb[k]);
-    for (j = k + 1; j < na; ++j)
-        emit_byte_class(b, 0x80, bb[j]);
+    emit_byte_range(b, NULL, 0, a, bb, na, first);
 }
 
 /* ------------------------------------------------------------------ */

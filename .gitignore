@@ -20,6 +20,7 @@ stamp-h1
 stamp-po
 stamp-vti
 _install/
-Makefile
+# autotools-generated Makefiles (the top-level Makefile is committed)
+flex-2.6.4/**/Makefile
 stage1scan.c
 stage1flex

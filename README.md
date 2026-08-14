@@ -74,7 +74,7 @@ UNICODE_GREEK     [\u0370-\u03FF]
 需要：`gcc`、`make`、`autoconf`/`automake`（重新生成 `Makefile.in` 时才需要）。
 
 ```bash
-cd project3-flex-unicode
+cd flex-unicode
 make            # 等价于: cd flex-2.6.4 && ./configure && make
 make test       # 生成/编译/运行 Unicode 测试
 ```
@@ -90,11 +90,14 @@ make
 
 ## 测试
 
-`make test` 会运行两个词法文件：
+`make test` 会运行三个词法文件：
 
 - `tests/example-unicode.l`：中文/希腊文/箭头/符号/ASCII 的分类匹配；
 - `tests/example-single.l`：单个 `\u4e2d`、`\u{1F600}`（emoji）、混合类
-  `[a-zA-Z\u4e2d\u6587]`、跨字节长度区间 `[\u00e9-\u4e2d]`。
+  `[a-zA-Z\u4e2d\u6587]`、跨字节长度区间 `[\u00e9-\u4e2d]`；
+- `tests/example-range.l`：回归用例，区间低端非 0x80 对齐的
+  `[\u4e2d-\u9fff]`，输入含曾被漏匹配的 `你`（U+4F60）与 `乀`（U+4E40），
+  并断言输出包含完整的 `CJK: 你好`。
 
 参考输出：
 
