@@ -55,14 +55,18 @@ jobs:
 
       # flex itself is the code under test (unicode.c runs inside it while
       # expanding \u escapes), so the sanitizer build covers the expansion.
-      # Configure with default flags first: sanitizer CFLAGS can distort
-      # configure's feature tests (e.g. AC_FUNC_MALLOC/REALLOC) and produce
-      # rpl_malloc/rpl_realloc mappings; the flags are applied at make time.
-      - name: Configure and build flex with sanitizers
+      # Configure must run with default flags: sanitizer CFLAGS distort
+      # configure's feature tests (AC_FUNC_MALLOC/REALLOC), which then emit
+      # rpl_malloc/rpl_realloc mappings that break every raw malloc call on
+      # 64-bit Linux. The sanitizer flags are applied at make time only.
+      - name: Configure flex (default flags)
+        run: cd flex-2.6.4 && ./configure
+
+      - name: Build flex with sanitizers
         env:
           CFLAGS: -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer
           LDFLAGS: -fsanitize=address,undefined
-        run: cd flex-2.6.4 && ./configure && make CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS"
+        run: cd flex-2.6.4 && make CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS"
 
       - name: Run tests under sanitizers
         env:
